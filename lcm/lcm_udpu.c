@@ -40,7 +40,7 @@
 #define SELF_TEST_CHANNEL "LCM_SELF_TEST"
 
 /**
- * udpm_params_t:
+ * udpu_params_t:
  * @mc_addr:        multicast address
  * @mc_port:        multicast port
  * @mc_ttl:         if 0, then packets never leave local host.
@@ -51,15 +51,15 @@
  *                  SO_RCVBUF.  0 indicates to use the default settings.
  *
  */
-typedef struct _udpm_params_t udpm_params_t;
-struct _udpm_params_t {
+typedef struct _udpu_params_t udpu_params_t;
+struct _udpu_params_t {
     struct in_addr mc_addr;
     uint16_t mc_port;
     uint8_t mc_ttl;
     int recv_buf_size;
 };
 
-typedef struct _lcm_provider_t lcm_udpm_t;
+typedef struct _lcm_provider_t lcm_udpu_t;
 struct _lcm_provider_t {
     SOCKET recvfd;
     SOCKET sendfd;
@@ -67,7 +67,7 @@ struct _lcm_provider_t {
 
     lcm_t *lcm;
 
-    udpm_params_t params;
+    udpu_params_t params;
 
     /* size of the kernel UDP receive buffer */
     int kernel_rbuf_sz;
@@ -111,11 +111,11 @@ struct _lcm_provider_t {
     uint32_t msg_seqno;  // rolling counter of how many messages transmitted
 };
 
-static int _setup_recv_parts(lcm_udpm_t *lcm);
+static int _setup_recv_parts(lcm_udpu_t *lcm);
 
 static GPrivate CREATE_READ_THREAD_PKEY;
 
-static void _destroy_recv_parts(lcm_udpm_t *lcm)
+static void _destroy_recv_parts(lcm_udpu_t *lcm)
 {
     if (lcm->thread_created) {
         // send the read thread an exit command
@@ -159,7 +159,7 @@ static void _destroy_recv_parts(lcm_udpm_t *lcm)
     }
 }
 
-void lcm_udpm_destroy(lcm_udpm_t *lcm)
+void lcm_udpu_destroy(lcm_udpu_t *lcm)
 {
     dbg(DBG_LCM, "closing lcm context\n");
     _destroy_recv_parts(lcm);
@@ -180,7 +180,7 @@ void lcm_udpm_destroy(lcm_udpm_t *lcm)
     free(lcm);
 }
 
-static int parse_mc_addr_and_port(const char *str, udpm_params_t *params)
+static int parse_mc_addr_and_port(const char *str, udpu_params_t *params)
 {
     if (!str || !strlen(str)) {
         str = "239.255.76.67:7667";
@@ -209,7 +209,7 @@ fail:
 
 static void new_argument(gpointer key, gpointer value, gpointer user)
 {
-    udpm_params_t *params = (udpm_params_t *) user;
+    udpu_params_t *params = (udpu_params_t *) user;
     if (!strcmp((char *) key, "recv_buf_size")) {
         char *endptr = NULL;
         params->recv_buf_size = strtol((char *) value, &endptr, 0);
@@ -228,7 +228,7 @@ static void new_argument(gpointer key, gpointer value, gpointer user)
     }
 }
 
-static int _recv_message_fragment(lcm_udpm_t *lcm, lcm_buf_t *lcmb, uint32_t sz)
+static int _recv_message_fragment(lcm_udpu_t *lcm, lcm_buf_t *lcmb, uint32_t sz)
 {
     lcm2_header_long_t *hdr = (lcm2_header_long_t *) lcmb->buf;
 
@@ -350,7 +350,7 @@ static int _recv_message_fragment(lcm_udpm_t *lcm, lcm_buf_t *lcmb, uint32_t sz)
     return 0;
 }
 
-static int _recv_short_message(lcm_udpm_t *lcm, lcm_buf_t *lcmb, int sz)
+static int _recv_short_message(lcm_udpu_t *lcm, lcm_buf_t *lcmb, int sz)
 {
     lcm2_header_short_t *hdr2 = (lcm2_header_short_t *) lcmb->buf;
 
@@ -381,7 +381,7 @@ static int _recv_short_message(lcm_udpm_t *lcm, lcm_buf_t *lcmb, int sz)
 }
 
 // read continuously until a complete message arrives
-static lcm_buf_t *udp_read_packet(lcm_udpm_t *lcm)
+static lcm_buf_t *udp_read_packet(lcm_udpu_t *lcm)
 {
     lcm_buf_t *lcmb = NULL;
 
@@ -546,7 +546,7 @@ static void *recv_thread(void *user)
     pthread_sigmask(SIG_SETMASK, &mask, NULL);
 #endif
 
-    lcm_udpm_t *lcm = (lcm_udpm_t *) user;
+    lcm_udpu_t *lcm = (lcm_udpu_t *) user;
 
     while (1) {
         lcm_buf_t *lcmb = udp_read_packet(lcm);
@@ -572,7 +572,7 @@ static void *recv_thread(void *user)
     return NULL;
 }
 
-static int lcm_udpm_get_fileno(lcm_udpm_t *lcm)
+static int lcm_udpu_get_fileno(lcm_udpu_t *lcm)
 {
     if (_setup_recv_parts(lcm) < 0) {
         return -1;
@@ -580,12 +580,12 @@ static int lcm_udpm_get_fileno(lcm_udpm_t *lcm)
     return lcm->notify_pipe[0];
 }
 
-static int lcm_udpm_subscribe(lcm_udpm_t *lcm, const char *channel)
+static int lcm_udpu_subscribe(lcm_udpu_t *lcm, const char *channel)
 {
     return _setup_recv_parts(lcm);
 }
 
-static int lcm_udpm_publish(lcm_udpm_t *lcm, const char *channel, const void *data,
+static int lcm_udpu_publish(lcm_udpu_t *lcm, const char *channel, const void *data,
                             unsigned int datalen)
 {
     int channel_size = strlen(channel);
@@ -722,7 +722,7 @@ static int lcm_udpm_publish(lcm_udpm_t *lcm, const char *channel, const void *da
     return 0;
 }
 
-static int lcm_udpm_handle(lcm_udpm_t *lcm)
+static int lcm_udpu_handle(lcm_udpu_t *lcm)
 {
     int status;
     char ch;
@@ -786,7 +786,7 @@ static void self_test_handler(const lcm_recv_buf_t *rbuf, const char *channel, v
     *result = 1;
 }
 
-static int udpm_self_test(lcm_udpm_t *lcm)
+static int udpu_self_test(lcm_udpu_t *lcm)
 {
     int success = 0;
     int status;
@@ -795,7 +795,7 @@ static int udpm_self_test(lcm_udpm_t *lcm)
 
     // transmit a message
     char *msg = "lcm self test";
-    lcm_udpm_publish(lcm, SELF_TEST_CHANNEL, (uint8_t *) msg, strlen(msg));
+    lcm_udpu_publish(lcm, SELF_TEST_CHANNEL, (uint8_t *) msg, strlen(msg));
 
     // wait 10 seconds for message to be received
     int64_t now, endtime;
@@ -819,13 +819,13 @@ static int udpm_self_test(lcm_udpm_t *lcm)
 
         now = g_get_real_time();
         if (now > next_retransmit) {
-            status = lcm_udpm_publish(lcm, SELF_TEST_CHANNEL, (uint8_t *) msg, strlen(msg));
+            status = lcm_udpu_publish(lcm, SELF_TEST_CHANNEL, (uint8_t *) msg, strlen(msg));
             next_retransmit = now + retransmit_interval;
         }
 
         status = select(recvfd + 1, &readfds, 0, 0, &selectto);
         if (status > 0 && FD_ISSET(recvfd, &readfds)) {
-            lcm_udpm_handle(lcm);
+            lcm_udpu_handle(lcm);
         }
         now = g_get_real_time();
 
@@ -840,7 +840,7 @@ static int udpm_self_test(lcm_udpm_t *lcm)
     return (success == 1) ? 0 : -1;
 }
 
-static int _setup_recv_parts(lcm_udpm_t *lcm)
+static int _setup_recv_parts(lcm_udpu_t *lcm)
 {
     g_rec_mutex_lock(&lcm->mutex);
 
@@ -990,10 +990,10 @@ static int _setup_recv_parts(lcm_udpm_t *lcm)
     mreq.imr_interface.s_addr = INADDR_ANY;
     // join the multicast group
     dbg(DBG_LCM, "LCM: joining multicast group\n");
-    if (setsockopt(lcm->recvfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &mreq, sizeof(mreq)) < 0) {
-        perror("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
-        goto setup_recv_thread_fail;
-    }
+    // if (setsockopt(lcm->recvfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &mreq, sizeof(mreq)) < 0) {
+    //     perror("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
+    //     goto setup_recv_thread_fail;
+    // }
 
     lcm->inbufs_empty = lcm_buf_queue_new();
     lcm->inbufs_filled = lcm_buf_queue_new();
@@ -1025,7 +1025,7 @@ static int _setup_recv_parts(lcm_udpm_t *lcm)
 
     // conduct a self-test just to make sure everything is working.
     dbg(DBG_LCM, "LCM: conducting self test\n");
-    int self_test_results = udpm_self_test(lcm);
+    int self_test_results = udpu_self_test(lcm);
     g_rec_mutex_lock(&lcm->mutex);
 
     if (0 == self_test_results) {
@@ -1053,10 +1053,10 @@ setup_recv_thread_fail:
     return -1;
 }
 
-lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashTable *args)
+lcm_provider_t *lcm_udpu_create(lcm_t *parent, const char *network, const GHashTable *args)
 {
-    udpm_params_t params;
-    memset(&params, 0, sizeof(udpm_params_t));
+    udpu_params_t params;
+    memset(&params, 0, sizeof(udpu_params_t));
 
     g_hash_table_foreach((GHashTable *) args, new_argument, &params);
 
@@ -1064,7 +1064,7 @@ lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashT
         return NULL;
     }
 
-    lcm_udpm_t *lcm = (lcm_udpm_t *) calloc(1, sizeof(lcm_udpm_t));
+    lcm_udpu_t *lcm = (lcm_udpu_t *) calloc(1, sizeof(lcm_udpu_t));
 
     lcm->lcm = parent;
     lcm->params = params;
@@ -1085,7 +1085,7 @@ lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashT
     // internal notification pipe
     if (0 != lcm_internal_pipe_create(lcm->notify_pipe)) {
         perror(__FILE__ " pipe(create)");
-        lcm_udpm_destroy(lcm);
+        lcm_udpu_destroy(lcm);
         return NULL;
     }
     fcntl(lcm->notify_pipe[1], F_SETFL, O_NONBLOCK);
@@ -1093,7 +1093,7 @@ lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashT
     g_rec_mutex_init(&lcm->mutex);
     g_mutex_init(&lcm->transmit_lock);
 
-    dbg(DBG_LCM, "Initializing LCM UDPM context...\n");
+    dbg(DBG_LCM, "Initializing LCM udpu context...\n");
     dbg(DBG_LCM, "Multicast %s:%d\n", inet_ntoa(params.mc_addr), ntohs(params.mc_port));
 
     // setup destination multicast address
@@ -1106,7 +1106,7 @@ lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashT
     SOCKET testfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (connect(testfd, (struct sockaddr *) &lcm->dest_addr, sizeof(lcm->dest_addr)) < 0) {
         perror("connect");
-        lcm_udpm_destroy(lcm);
+        lcm_udpu_destroy(lcm);
 #ifdef __linux__
         linux_check_routing_table(lcm->dest_addr.sin_addr);
 #endif
@@ -1126,13 +1126,13 @@ lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashT
             "LCM multicast TTL set to 0.  Packets will not "
             "leave localhost\n");
     }
-    dbg(DBG_LCM, "LCM: setting multicast packet TTL to %d\n", params.mc_ttl);
-    if (setsockopt(lcm->sendfd, IPPROTO_IP, IP_MULTICAST_TTL, (char *) &params.mc_ttl,
-                   sizeof(params.mc_ttl)) < 0) {
-        perror("setsockopt(IPPROTO_IP, IP_MULTICAST_TTL)");
-        lcm_udpm_destroy(lcm);
-        return NULL;
-    }
+    // dbg(DBG_LCM, "LCM: setting multicast packet TTL to %d\n", params.mc_ttl);
+    // if (setsockopt(lcm->sendfd, IPPROTO_IP, IP_MULTICAST_TTL, (char *) &params.mc_ttl,
+    //                sizeof(params.mc_ttl)) < 0) {
+    //     perror("setsockopt(IPPROTO_IP, IP_MULTICAST_TTL)");
+    //     lcm_udpu_destroy(lcm);
+    //     return NULL;
+    // }
 
 #ifdef WIN32
     // Windows has small (8k) buffer by default
@@ -1154,12 +1154,12 @@ lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashT
 #else
     unsigned int send_lo_opt = 1;
 #endif
-    if (setsockopt(lcm->sendfd, IPPROTO_IP, IP_MULTICAST_LOOP, (char *) &send_lo_opt,
-                   sizeof(send_lo_opt)) < 0) {
-        perror("setsockopt (IPPROTO_IP, IP_MULTICAST_LOOP)");
-        lcm_udpm_destroy(lcm);
-        return NULL;
-    }
+    // if (setsockopt(lcm->sendfd, IPPROTO_IP, IP_MULTICAST_LOOP, (char *) &send_lo_opt,
+    //                sizeof(send_lo_opt)) < 0) {
+    //     perror("setsockopt (IPPROTO_IP, IP_MULTICAST_LOOP)");
+    //     lcm_udpu_destroy(lcm);
+    //     return NULL;
+    // }
 
     // don't start the receive thread yet.  Only allocate resources for
     // receiving messages when a subscription is made.
@@ -1169,50 +1169,50 @@ lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashT
     mreq.imr_multiaddr = lcm->params.mc_addr;
     mreq.imr_interface.s_addr = INADDR_ANY;
     dbg(DBG_LCM, "LCM: joining multicast group\n");
-    if (setsockopt(lcm->sendfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &mreq, sizeof(mreq)) < 0) {
-#ifdef WIN32
-// ignore this error in windows... see issue #60
-#else
-        perror("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
-        lcm_udpm_destroy(lcm);
-        return NULL;
-#endif
-    }
+//     if (setsockopt(lcm->sendfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &mreq, sizeof(mreq)) < 0) {
+// #ifdef WIN32
+// // ignore this error in windows... see issue #60
+// #else
+//         perror("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
+//         lcm_udpu_destroy(lcm);
+//         return NULL;
+// #endif
+//     }
 
     return lcm;
 }
 
 #ifdef WIN32
-static lcm_provider_vtable_t udpm_vtable;
+static lcm_provider_vtable_t udpu_vtable;
 #else
-static lcm_provider_vtable_t udpm_vtable = {
-    .create = lcm_udpm_create,
-    .destroy = lcm_udpm_destroy,
-    .subscribe = lcm_udpm_subscribe,
+static lcm_provider_vtable_t udpu_vtable = {
+    .create = lcm_udpu_create,
+    .destroy = lcm_udpu_destroy,
+    .subscribe = lcm_udpu_subscribe,
     .unsubscribe = NULL,
-    .publish = lcm_udpm_publish,
-    .handle = lcm_udpm_handle,
-    .get_fileno = lcm_udpm_get_fileno,
+    .publish = lcm_udpu_publish,
+    .handle = lcm_udpu_handle,
+    .get_fileno = lcm_udpu_get_fileno,
 };
 #endif
 
-static lcm_provider_info_t udpm_info;
+static lcm_provider_info_t udpu_info;
 
-void lcm_udpm_provider_init(GPtrArray *providers)
+void lcm_udpu_provider_init(GPtrArray *providers)
 {
 #ifdef WIN32
     // Because of Microsoft Visual Studio compiler
     // difficulties, do this now, not statically
-    udpm_vtable.create = lcm_udpm_create;
-    udpm_vtable.destroy = lcm_udpm_destroy;
-    udpm_vtable.subscribe = lcm_udpm_subscribe;
-    udpm_vtable.unsubscribe = NULL;
-    udpm_vtable.publish = lcm_udpm_publish;
-    udpm_vtable.handle = lcm_udpm_handle;
-    udpm_vtable.get_fileno = lcm_udpm_get_fileno;
+    udpu_vtable.create = lcm_udpu_create;
+    udpu_vtable.destroy = lcm_udpu_destroy;
+    udpu_vtable.subscribe = lcm_udpu_subscribe;
+    udpu_vtable.unsubscribe = NULL;
+    udpu_vtable.publish = lcm_udpu_publish;
+    udpu_vtable.handle = lcm_udpu_handle;
+    udpu_vtable.get_fileno = lcm_udpu_get_fileno;
 #endif
-    udpm_info.name = "udpm";
-    udpm_info.vtable = &udpm_vtable;
+    udpu_info.name = "udpu";
+    udpu_info.vtable = &udpu_vtable;
 
-    g_ptr_array_add(providers, &udpm_info);
+    g_ptr_array_add(providers, &udpu_info);
 }

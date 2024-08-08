@@ -128,7 +128,7 @@ static int _connect_to_server(lcm_tcpq_t *self)
     if (self->socket)
         _close_socket(self->socket);
 
-    self->socket = socket(AF_INET, SOCK_STREAM, 0);
+    self->socket = socket(AF_INET,SOCK_STREAM,0);
     if (self->socket < 0) {
         perror("lcm_tcpq socket");
         return -1;

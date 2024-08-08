@@ -53,7 +53,7 @@ extern void lcm_logprov_provider_init(GPtrArray *providers);
 extern void lcm_tcpq_provider_init(GPtrArray *providers);
 extern void lcm_mpudpm_provider_init(GPtrArray *providers);
 extern void lcm_memq_provider_init(GPtrArray *providers);
-
+extern void lcm_udpu_provider_init(GPtrArray *providers);
 lcm_t *lcm_create(const char *url)
 {
 #ifdef WIN32
@@ -72,6 +72,7 @@ lcm_t *lcm_create(const char *url)
 
     // initialize the list of providers
     lcm_udpm_provider_init(providers);
+    lcm_udpu_provider_init(providers);
     lcm_logprov_provider_init(providers);
     lcm_tcpq_provider_init(providers);
     lcm_mpudpm_provider_init(providers);
